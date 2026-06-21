@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getIssuerReputation } from "@/lib/reputation";
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,7 @@ export default async function VerifyPage({
         .from("certificates")
         .select("*")
         .eq("token_id", tokenId)
+        .eq("approval_status", "approved")
         .single();
       searchResult = data;
     }
@@ -35,6 +37,7 @@ export default async function VerifyPage({
         .from("certificates")
         .select("*")
         .eq("tx_hash", trimmed)
+        .eq("approval_status", "approved")
         .single();
       searchResult = data;
     }
@@ -48,6 +51,14 @@ export default async function VerifyPage({
       } catch (e) {
         console.error("Blockchain verification failed:", e);
       }
+    }
+
+    if (searchResult) {
+      const reputationInfo = await getIssuerReputation(
+        searchResult.issuer_wallet,
+        searchResult.tx_hash
+      );
+      searchResult.reputation_info = reputationInfo;
     }
   }
 
@@ -149,6 +160,27 @@ export default async function VerifyPage({
 
                   {searchResult.description && (
                     <p className="mt-4 text-sm text-[#5D5452] italic border-t border-[#D9EDD9] pt-4">{searchResult.description}</p>
+                  )}
+
+                  {searchResult.reputation_info && (
+                    <div className="mt-4 border-t border-[#D9EDD9] pt-4">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#4A7A55]">Issuer Trust Score</p>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-3 bg-white border border-[#D9EDD9] rounded-xl p-4 text-xs">
+                        <div>
+                          <p className="font-semibold text-[#2D2220] text-sm">Score: <span className="text-[#1A6A31] font-bold">{searchResult.reputation_info.reputation}</span></p>
+                          <p className="text-[10px] text-[#866E65] mt-0.5">Issuer: {searchResult.issuer_wallet}</p>
+                        </div>
+                        <div className="text-right text-[10px] text-[#6B5A54] space-y-0.5">
+                          <p>Total Minted: <strong>{searchResult.reputation_info.total_issued}</strong></p>
+                          <p>Revoked: <strong>{searchResult.reputation_info.revoked}</strong></p>
+                        </div>
+                        {searchResult.reputation_info.reputation >= 95 && (
+                          <div className="w-full mt-2 pt-2 border-t border-[#F5EBE6]">
+                            <span className="rounded bg-[#EFFAF1] border border-[#B9D9C0] px-2 py-0.5 text-[9px] font-bold text-[#1A6A31] inline-block uppercase tracking-wider">Trusted Issuer ⭐</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
 
                   {searchResult.tx_hash && (

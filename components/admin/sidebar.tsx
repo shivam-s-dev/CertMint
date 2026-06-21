@@ -3,6 +3,7 @@ import Link from "next/link";
 const adminNavItems = [
   { label: "Overview", href: "/admin" },
   { label: "Certs", href: "/admin/certs" },
+  { label: "Approvals", href: "/admin/approvals" },
   { label: "Wallets", href: "/admin/wallets" },
   { label: "Txns", href: "/admin/txns" },
   { label: "Logs", href: "/admin/logs" },

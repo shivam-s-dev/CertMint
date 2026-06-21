@@ -2,11 +2,6 @@
 
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, IntoVal, String, Symbol};
 
-// Import the CertificateData from the other contract to parse the result
-// or we can define a matching struct if we don't want direct dependency.
-// But we added nft_certificate as dependency, so we can use its types directly 
-// or redefine it. Let's redefine it to keep it decoupled at compile time if we want,
-// or use the dependency. The dependency approach is cleaner.
 use nft_certificate::CertificateData;
 
 #[contracttype]

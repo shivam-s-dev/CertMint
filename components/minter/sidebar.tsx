@@ -3,6 +3,7 @@ import Link from "next/link";
 interface SidebarProps {
   email: string | null;
   kycStatus: "pending" | "approved" | "rejected" | "unknown";
+  role: string;
 }
 
 const navItems = [
@@ -24,11 +25,16 @@ function kycBadgeClasses(status: SidebarProps["kycStatus"]) {
   return "border-[#E9D6CD] bg-[#FFF8F4] text-[#5A4C47]";
 }
 
-export function MinterSidebar({ kycStatus }: SidebarProps) {
+export function MinterSidebar({ kycStatus, role }: SidebarProps) {
+  const currentNavItems = [...navItems];
+  if (role === "hod" || role === "registrar") {
+    currentNavItems.push({ label: "Approvals Queue", href: "/approvals" });
+  }
+
   return (
     <aside className="w-full shrink-0 border-b border-[#E7D4CA] bg-white/85 p-5 lg:w-72 lg:border-b-0 lg:border-r lg:bg-transparent lg:p-6">
       <nav className="grid gap-2">
-        {navItems.map((item) => (
+        {currentNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}

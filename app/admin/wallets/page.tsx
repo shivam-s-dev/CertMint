@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { updateApprovalStatusAction } from "@/app/admin/actions";
+import { updateApprovalStatusAction, updateUserRoleAction } from "@/app/admin/actions";
 import { requireAdminUser } from "@/lib/auth/admin-access";
 
 export const dynamic = 'force-dynamic';
@@ -175,6 +175,28 @@ export default async function AdminWalletsPage({ searchParams }: WalletsPageProp
                             </button>
                           </form>
                         ) : null}
+                      </div>
+
+                      <div className="mt-3 border-t border-[#F1E4DD] pt-2">
+                        <form action={updateUserRoleAction} className="flex flex-wrap items-center gap-1.5">
+                          <input type="hidden" name="userId" value={profile.id} />
+                          <input type="hidden" name="viewStatus" value={selectedStatus} />
+                          <select
+                            name="role"
+                            defaultValue={profile.role}
+                            className="rounded-lg border border-[#DFC8BC] bg-white px-2 py-1 text-xs text-[#2D2220] outline-none"
+                          >
+                            <option value="issuer">Issuer (Faculty)</option>
+                            <option value="hod">HOD</option>
+                            <option value="registrar">Registrar</option>
+                          </select>
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-[#C55B34] bg-white px-2.5 py-1 text-xs font-semibold text-[#C55B34] transition hover:bg-[#FFF7F2]"
+                          >
+                            Set Role
+                          </button>
+                        </form>
                       </div>
                     </td>
                   </tr>

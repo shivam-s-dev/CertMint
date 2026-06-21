@@ -145,3 +145,38 @@ fn test_burn_success() {
     assert_eq!(client.total_supply(), 0);
     assert_eq!(client.get_balance(&to), 0);
 }
+
+#[test]
+fn test_reputation_tracking() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(NFTCertificateContract, ());
+    let client = NFTCertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let to = Address::generate(&env);
+    let token_id = 1;
+    let cert_type = Symbol::new(&env, "cert");
+    let title = String::from_str(&env, "Test Certificate");
+
+    // Initially reputation doesn't exist
+    assert!(client.get_issuer(&to).is_none());
+
+    // Mint increases total_issued and reputation
+    client.mint(&to, &token_id, &cert_type, &title);
+
+    let issuer_info = client.get_issuer(&to).unwrap();
+    assert_eq!(issuer_info.total_issued, 1);
+    assert_eq!(issuer_info.revoked, 0);
+    assert_eq!(issuer_info.reputation, 101); // starts at 100 + 1 = 101
+
+    // Burn increments revoked and decrements reputation
+    client.burn(&token_id);
+
+    let issuer_info_after = client.get_issuer(&to).unwrap();
+    assert_eq!(issuer_info_after.total_issued, 1);
+    assert_eq!(issuer_info_after.revoked, 1);
+    assert_eq!(issuer_info_after.reputation, 100); // 101 - 1 = 100
+}

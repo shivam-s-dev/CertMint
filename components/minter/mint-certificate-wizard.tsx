@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useIntegration } from "@/hooks/use-integration";
 
 type CertType = "HACKATHON" | "COURSE" | "EVENT" | "ACHIEVEMENT";
 type MintStep = 1 | 2 | 3;
@@ -34,10 +33,11 @@ const themeClasses: Record<CardTheme, string> = {
 function MintCertificateWizard() {
   const [step, setStep] = useState<MintStep>(1);
   const [txState, setTxState] = useState<TxState>("idle");
-  const [tokenId, setTokenId] = useState<number | null>(null);
-  const [txHash, setTxHash] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { walletAddress, connectWallet, mintCertificateTx } = useIntegration();
+
+  const [workflowType, setWorkflowType] = useState<"standard" | "academic">("standard");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedId, setSubmittedId] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>({
     title: "Best DeFi Project",
@@ -87,55 +87,34 @@ function MintCertificateWizard() {
   function resetFlow() {
     setStep(1);
     setTxState("idle");
-    setTokenId(null);
-    setTxHash(null);
     setErrorMessage(null);
+    setSubmittedId(null);
+    setIsSubmitting(false);
   }
 
-  async function handleMint() {
-    setTxState("waiting");
-    setTokenId(null);
-    setTxHash(null);
+  async function handleSubmitForApproval() {
+    setIsSubmitting(true);
     setErrorMessage(null);
-
-    let currentAddress = walletAddress;
+    setTxState("waiting");
     try {
-      if (!currentAddress) {
-        currentAddress = await connectWallet();
-      }
-    } catch (e) {
-      console.error("Failed to check Freighter", e);
-    }
-
-    if (!currentAddress) {
-      setErrorMessage("Please connect your Freighter wallet using the top right button.");
-      setTxState("idle");
-      return;
-    }
-
-    try {
-      const { realHash, generatedTokenId, contractId } = await mintCertificateTx(currentAddress, form);
-
-      // Save to Supabase with real on-chain hash
-      const { saveMintedCertificateAction } = await import("@/app/(minter)/mint/actions");
-      await saveMintedCertificateAction({
-        tokenId: generatedTokenId,
-        certType: form.certType,
+      const { submitCertificateForApprovalAction } = await import("@/app/(minter)/mint/actions");
+      const result = await submitCertificateForApprovalAction({
         title: form.title,
         description: form.description,
-        txHash: realHash,
-        contractId,
+        certType: form.certType,
+        workflowType,
       });
 
-      setTokenId(generatedTokenId);
-      setTxHash(realHash);
-      setTxState("success");
-
+      if (result.success) {
+        setSubmittedId(result.certId);
+        setTxState("success");
+      }
     } catch (err: unknown) {
       console.error(err);
-      const message = err instanceof Error ? err.message : "Transaction failed";
-      setErrorMessage(message);
+      setErrorMessage(err instanceof Error ? err.message : "Failed to submit for approval.");
       setTxState("error");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -195,6 +174,21 @@ function MintCertificateWizard() {
                     <option value="COURSE">Course</option>
                     <option value="EVENT">Event</option>
                     <option value="ACHIEVEMENT">Achievement</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-[#2C211D]" htmlFor="workflowType">
+                    Approval Workflow*
+                  </label>
+                  <select
+                    id="workflowType"
+                    value={workflowType}
+                    onChange={(event) => setWorkflowType(event.target.value as "standard" | "academic")}
+                    className="mt-2 w-full rounded-xl border border-[#DFC8BC] bg-white px-4 py-3 text-sm text-[#2D2220] outline-none focus:border-[#C55B34] focus:ring-2 focus:ring-[#F6D5C8]"
+                  >
+                    <option value="standard">Standard (Issuer → Admin Approval)</option>
+                    <option value="academic">Academic (Faculty → HOD → Registrar Approval)</option>
                   </select>
                 </div>
               </div>
@@ -272,45 +266,47 @@ function MintCertificateWizard() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleMint}
-                    disabled={txState === "waiting" || txState === "submitted"}
+                    onClick={handleSubmitForApproval}
+                    disabled={isSubmitting || txState === "waiting"}
                     className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#C85F37] bg-[#C85F37] px-6 text-xs font-semibold uppercase tracking-[0.12em] text-[#FFF8F4] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Mint Certificate 🚀
+                    {isSubmitting ? "Submitting..." : `Submit for ${workflowType === "standard" ? "Admin" : "HOD"} Approval 🚀`}
                   </button>
                 </div>
 
                 {/* Success Panel */}
-                {txState === "success" && tokenId && txHash ? (
+                {txState === "success" && submittedId ? (
                   <div className="rounded-2xl border-2 border-[#B9D9C0] bg-[#EFFAF1] p-5">
-                    <p className="font-semibold text-[#1A6A31] text-base">🎉 Certificate Minted!</p>
-                    <p className="mt-1 text-xs text-[#4A7A55]">Share these credentials with the recipient to verify their certificate.</p>
+                    <p className="font-semibold text-[#1A6A31] text-base">🎉 Submitted for Approval!</p>
+                    <p className="mt-1 text-xs text-[#4A7A55]">
+                      Your request has been successfully registered. It is now pending review from the authorities.
+                    </p>
                     <div className="mt-4 space-y-3">
                       <div className="rounded-xl border border-[#B9D9C0] bg-white px-4 py-3">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#4A7A55]">Certificate / Verification ID</p>
-                        <p className="mt-1 font-mono text-xl font-bold text-[#1A1211] tracking-wider">#{tokenId}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#4A7A55]">Workflow Type</p>
+                        <p className="mt-1 font-semibold text-[#1A1211] capitalize">{workflowType} workflow</p>
                       </div>
                       <div className="rounded-xl border border-[#B9D9C0] bg-white px-4 py-3">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#4A7A55]">Transaction ID</p>
-                        <p className="mt-1 font-mono text-xs text-[#2D2220] break-all">{txHash}</p>
-                        <a href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-[#C55B34] underline-offset-2 hover:underline">
-                          View on Stellar Explorer ↗
-                        </a>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#4A7A55]">Initial Stage</p>
+                        <p className="mt-1 font-semibold text-[#1A1211]">
+                          {workflowType === "standard" ? "Pending Admin" : "Pending HOD"}
+                        </p>
                       </div>
                     </div>
-                    <button type="button" onClick={resetFlow} className="mt-4 w-full rounded-xl border border-[#C55B34] bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.1em] text-[#C55B34] transition hover:bg-[#FFF1EA]">
-                      Mint Another Certificate
+                    <button
+                      type="button"
+                      onClick={() => window.location.href = "/manage-minted"}
+                      className="mt-4 w-full rounded-xl border border-[#C55B34] bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.1em] text-[#C55B34] transition hover:bg-[#FFF1EA]"
+                    >
+                      Go to Manage Page
                     </button>
                   </div>
                 ) : (
                   <div className="rounded-xl border border-[#E8D4CA] bg-white p-4 text-sm text-[#4E4340]">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#8A7165]">TX Status</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#8A7165]">Submission Status</p>
                     <div className="mt-2 space-y-2">
                       <p className={txState === "waiting" ? "text-[#AA4C2F] font-semibold" : "text-[#6F625E]"}>
-                        {txState === "waiting" ? "⏳ Waiting for Freighter approval..." : "◦ Waiting for Freighter..."}
-                      </p>
-                      <p className={txState === "submitted" ? "text-[#AA4C2F] font-semibold" : "text-[#6F625E]"}>
-                        {txState === "submitted" ? "🔄 Saving to blockchain..." : "◦ Submitting transaction..."}
+                        {txState === "waiting" ? "⏳ Submitting for approval..." : "◦ Waiting to submit..."}
                       </p>
                       {txState === "error" && errorMessage && (
                         <p className="text-[#A54527] font-semibold">❌ {errorMessage}</p>

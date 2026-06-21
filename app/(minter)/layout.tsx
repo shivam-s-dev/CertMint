@@ -22,6 +22,7 @@ export default async function MinterLayout({ children }: Readonly<{ children: Re
 
   const approval = await getUserApproval(user.id);
   const kycStatus = approval?.approval_status ?? "unknown";
+  const role = approval?.role ?? "issuer";
 
   return (
     <div className="certmint-bg min-h-screen flex flex-col">
@@ -44,7 +45,7 @@ export default async function MinterLayout({ children }: Readonly<{ children: Re
       </header>
 
       <div className="flex flex-1 flex-col lg:flex-row">
-        <MinterSidebar email={user.email ?? null} kycStatus={kycStatus} />
+        <MinterSidebar email={user.email ?? null} kycStatus={kycStatus} role={role} />
         <main className="flex-1 px-6 py-8 sm:px-10 lg:px-12">
           {children}
         </main>

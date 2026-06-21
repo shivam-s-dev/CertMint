@@ -3,6 +3,14 @@
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Symbol};
 
 #[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct Issuer {
+    pub total_issued: u32,
+    pub revoked: u32,
+    pub reputation: u32,
+}
+
+#[contracttype]
 #[derive(Clone, Debug)]
 pub enum DataKey {
     Owner(u64),           // token_id -> Address
@@ -10,6 +18,7 @@ pub enum DataKey {
     Balance(Address),     // Address -> u32
     TotalSupply,          // u64
     Admin,                // Address
+    IssuerReputation(Address), // Address -> Issuer struct
 }
 
 #[contracttype]
@@ -62,6 +71,17 @@ impl NFTCertificateContract {
         };
         env.storage().persistent().set(&DataKey::Certificate(token_id), &cert_data);
 
+        // Update Issuer Reputation
+        let rep_key = DataKey::IssuerReputation(to.clone());
+        let mut issuer_info: Issuer = env.storage().persistent().get(&rep_key).unwrap_or(Issuer {
+            total_issued: 0,
+            revoked: 0,
+            reputation: 100,
+        });
+        issuer_info.total_issued = issuer_info.total_issued.saturating_add(1);
+        issuer_info.reputation = issuer_info.reputation.saturating_add(1);
+        env.storage().persistent().set(&rep_key, &issuer_info);
+
         // Update Balance
         let mut balance: u32 = env.storage().persistent().get(&DataKey::Balance(to.clone())).unwrap_or(0);
         balance += 1;
@@ -79,6 +99,17 @@ impl NFTCertificateContract {
     pub fn burn(env: Env, token_id: u64) {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
+
+        let cert_data: CertificateData = env.storage().persistent().get(&DataKey::Certificate(token_id)).expect("token does not exist");
+        let issuer_address = cert_data.issuer;
+
+        // Update Issuer Reputation
+        let rep_key = DataKey::IssuerReputation(issuer_address.clone());
+        if let Some(mut issuer_info) = env.storage().persistent().get::<_, Issuer>(&rep_key) {
+            issuer_info.revoked = issuer_info.revoked.saturating_add(1);
+            issuer_info.reputation = issuer_info.reputation.saturating_sub(1);
+            env.storage().persistent().set(&rep_key, &issuer_info);
+        }
 
         let owner: Address = env.storage().persistent().get(&DataKey::Owner(token_id)).expect("token does not exist");
         
@@ -137,6 +168,10 @@ impl NFTCertificateContract {
 
     pub fn total_supply(env: Env) -> u64 {
         env.storage().instance().get(&DataKey::TotalSupply).unwrap_or(0)
+    }
+
+    pub fn get_issuer(env: Env, issuer: Address) -> Option<Issuer> {
+        env.storage().persistent().get(&DataKey::IssuerReputation(issuer))
     }
 }
 

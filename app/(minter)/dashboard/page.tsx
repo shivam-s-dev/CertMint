@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getUserApproval } from "@/lib/auth/approval";
 import { createClient } from "@/lib/supabase/server";
+import { getIssuerReputation } from "@/lib/reputation";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,16 +28,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const { data: certData } = await supabase
     .from("certificates")
-    .select("is_revoked")
-    // Assuming RLS or we should filter by the minter if needed.
-    // If not, we'll just show all certificates for now.
-    // Ideally we would filter by minter_email or minter_id here if RLS isn't fully set up for this yet.
-    .returns<{ is_revoked: boolean }[]>();
+    .select("is_revoked, tx_hash")
+    .eq("issuer_wallet", user?.email || "UNKNOWN")
+    .returns<{ is_revoked: boolean; tx_hash: string | null }[]>();
 
   const certificates = certData ?? [];
   const total = certificates.length;
   const active = certificates.filter((item) => !item.is_revoked).length;
   const revoked = certificates.filter((item) => item.is_revoked).length;
+
+  // Fetch reputation
+  const latestMinted = certificates.find((c) => c.tx_hash !== null);
+  const reputationInfo = await getIssuerReputation(
+    user?.email || "UNKNOWN",
+    latestMinted?.tx_hash || null
+  );
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
@@ -57,14 +63,37 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <p className="mt-4 rounded-xl border border-[#B9D9C0] bg-[#EFFAF1] px-4 py-3 text-sm text-[#1A6A31]">{resolved.success}</p>
         ) : null}
 
-        <div className="mt-5 rounded-xl border border-[#E9D6CD] bg-[#FFF8F4] p-4">
-          <p className="text-xs uppercase tracking-[0.12em] text-[#866E65]">KYC verification status</p>
-          <p className="mt-2 text-lg font-semibold uppercase text-[#2E201D]">{status}</p>
-          {!isKycApproved ? (
-            <p className="mt-2 text-sm text-[#6B5A54]">Minting is locked until KYC is approved by admin.</p>
-          ) : (
-            <p className="mt-2 text-sm text-[#1A6A31]">KYC approved. You can mint certificates now.</p>
-          )}
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-[#E9D6CD] bg-[#FFF8F4] p-5">
+            <p className="text-xs uppercase tracking-[0.12em] text-[#866E65]">KYC verification status</p>
+            <p className="mt-2 text-lg font-semibold uppercase text-[#2E201D]">{status}</p>
+            {!isKycApproved ? (
+              <p className="mt-2 text-sm text-[#6B5A54]">Minting is locked until KYC is approved by admin.</p>
+            ) : (
+              <p className="mt-2 text-sm text-[#1A6A31]">KYC approved. You can mint certificates now.</p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-[#E9D6CD] bg-[#FFF8F4] p-5">
+            <p className="text-xs uppercase tracking-[0.12em] text-[#866E65] flex items-center gap-2">
+              <span>On-Chain Reputation</span>
+              <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                reputationInfo.source === "on-chain" 
+                  ? "bg-[#EFFAF1] text-[#1A6A31] border border-[#B9D9C0]" 
+                  : "bg-[#FFF8F4] text-[#8A7165] border border-[#E9D6CD]"
+              }`}>
+                {reputationInfo.source === "on-chain" ? "On-Chain" : "Database"}
+              </span>
+            </p>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-[family-name:var(--font-display)] text-[#2C211D]">{reputationInfo.reputation}</span>
+              <span className="text-xs text-[#866E65] uppercase tracking-wider font-semibold">Rep Score</span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#5D5452] border-t border-[#EFDED5] pt-2">
+              <p>On-chain Issued: <strong>{reputationInfo.total_issued}</strong></p>
+              <p>Revoked: <strong>{reputationInfo.revoked}</strong></p>
+            </div>
+          </div>
         </div>
 
         <div className="mt-8 border-t border-[#EFDED5] pt-6">

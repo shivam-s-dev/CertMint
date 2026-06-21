@@ -49,6 +49,10 @@ CREATE TABLE IF NOT EXISTS public.certificates (
   tx_hash text,
   contract_id text,
   is_revoked boolean NOT NULL DEFAULT false,
+  workflow_type text NOT NULL DEFAULT 'standard' CHECK (workflow_type IN ('standard', 'academic')),
+  approval_status text NOT NULL DEFAULT 'approved' CHECK (approval_status IN ('pending', 'approved', 'rejected')),
+  approval_stage text NOT NULL DEFAULT 'approved' CHECK (approval_stage IN ('pending_admin', 'pending_hod', 'pending_registrar', 'approved', 'rejected')),
+  rejection_reason text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -134,7 +138,21 @@ DROP POLICY IF EXISTS "Authenticated minters can insert certs" ON public.certifi
 CREATE POLICY "Authenticated minters can insert certs" ON public.certificates FOR INSERT TO authenticated WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Admin can update certificates" ON public.certificates;
-CREATE POLICY "Admin can update certificates" ON public.certificates FOR UPDATE TO authenticated USING (is_certmint_admin());
+DROP POLICY IF EXISTS "Admin and approvers can update certificates" ON public.certificates;
+CREATE POLICY "Admin and approvers can update certificates" ON public.certificates FOR UPDATE TO authenticated USING (
+  is_certmint_admin() OR
+  EXISTS (
+    SELECT 1 FROM public.user_profiles
+    WHERE id = auth.uid() AND (
+      (role = 'hod' AND certificates.approval_stage = 'pending_hod') OR
+      (role = 'registrar' AND certificates.approval_stage = 'pending_registrar')
+    )
+  ) OR
+  (
+    certificates.issuer_wallet = (auth.jwt() ->> 'email') AND
+    certificates.approval_stage = 'approved'
+  )
+);
 
 DROP POLICY IF EXISTS "Nobody can delete certificates" ON public.certificates;
 CREATE POLICY "Nobody can delete certificates" ON public.certificates FOR DELETE USING (false);

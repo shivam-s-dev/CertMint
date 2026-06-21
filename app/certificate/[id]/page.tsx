@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getIssuerReputation } from "@/lib/reputation";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,11 +18,17 @@ export default async function CertificateDetailPage({ params }: { params: Promis
     .from("certificates")
     .select("*")
     .eq("token_id", tokenId)
+    .eq("approval_status", "approved")
     .single();
 
   if (!certificate) {
     notFound();
   }
+
+  const reputationInfo = await getIssuerReputation(
+    certificate.issuer_wallet,
+    certificate.tx_hash
+  );
   
   let emojiBadge = "📄";
   if (certificate.cert_type === "HACKATHON") emojiBadge = "🏆";
@@ -101,6 +108,38 @@ export default async function CertificateDetailPage({ params }: { params: Promis
               <div>
                 <p className="text-sm font-semibold text-[#2D2220]">Scan to verify this</p>
                 <p className="text-sm text-[#5D5452]">certificate on-chain</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10">
+            <div className="flex items-center gap-4 mb-6">
+              <span className="text-sm font-semibold text-[#866E65] uppercase tracking-[0.1em]">Issuer Reputation</span>
+              <div className="h-px flex-1 bg-[#EFDED5]"></div>
+            </div>
+            <div className="rounded-2xl border border-[#EAD8CF] bg-[#FFFBF9] p-5 space-y-3 text-sm">
+              <div className="flex justify-between items-center py-1">
+                <span className="text-[#866E65]">Issuer Email:</span>
+                <span className="text-[#2D2220] font-medium">{certificate.issuer_wallet}</span>
+              </div>
+              {reputationInfo.issuer_address && (
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-[#866E65]">Issuer Wallet:</span>
+                  <span className="font-mono text-[#2D2220]">{`${reputationInfo.issuer_address.slice(0, 6)}...${reputationInfo.issuer_address.slice(-6)}`}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-1">
+                <span className="text-[#866E65]">Reputation Score:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[#1A6A31] font-bold text-base">{reputationInfo.reputation}</span>
+                  {reputationInfo.reputation >= 95 && (
+                    <span className="rounded bg-[#EFFAF1] border border-[#B9D9C0] px-1.5 py-0.5 text-[10px] font-bold text-[#1A6A31]">Trusted Issuer ⭐</span>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#EAD8CF] text-xs text-[#6B5A54]">
+                <p>Issued count: <strong>{reputationInfo.total_issued}</strong></p>
+                <p>Revoked count: <strong>{reputationInfo.revoked}</strong></p>
               </div>
             </div>
           </div>
