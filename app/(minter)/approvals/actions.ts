@@ -58,9 +58,9 @@ export async function academicApproveAction(formData: FormData) {
       throw new Error(`Database error: ${error.message}`);
     }
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     hasError = true;
-    errorMsg = err.message || "Approval failed.";
+    errorMsg = err instanceof Error ? err.message : "Approval failed.";
   }
 
   revalidatePath("/approvals");
@@ -101,9 +101,9 @@ export async function academicRejectAction(formData: FormData) {
       throw new Error(`Database error: ${error.message}`);
     }
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     hasError = true;
-    errorMsg = err.message || "Rejection failed.";
+    errorMsg = err instanceof Error ? err.message : "Rejection failed.";
   }
 
   revalidatePath("/approvals");
