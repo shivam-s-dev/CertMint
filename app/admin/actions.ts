@@ -113,3 +113,89 @@ export async function revokeCertificateAction(formData: FormData) {
   revalidatePath("/admin/txns");
   redirect(`/admin?success=${encodeURIComponent(`Certificate #${tokenId} revoked successfully.`)}`);
 }
+
+export async function updateUserRoleAction(formData: FormData) {
+  await ensureAdminAccess();
+
+  const userId = String(formData.get("userId") ?? "").trim();
+  const nextRole = String(formData.get("role") ?? "").trim();
+  const viewStatus = parseViewStatus(formData.get("viewStatus"));
+
+  if (!userId || !nextRole) {
+    redirect(`/admin/wallets?status=${viewStatus}&error=Missing+parameters`);
+  }
+
+  if (nextRole !== "issuer" && nextRole !== "hod" && nextRole !== "registrar") {
+    redirect(`/admin/wallets?status=${viewStatus}&error=Invalid+role`);
+  }
+
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
+    .from("user_profiles")
+    .update({ role: nextRole })
+    .eq("id", userId);
+
+  if (error) {
+    redirect(`/admin/wallets?status=${viewStatus}&error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/wallets");
+  redirect(`/admin/wallets?status=${viewStatus}&success=${encodeURIComponent(`User role updated to ${nextRole}.`)}`);
+}
+
+export async function approveCertificateAction(formData: FormData) {
+  await ensureAdminAccess();
+
+  const certId = String(formData.get("certId") ?? "").trim();
+
+  if (!certId) {
+    redirect("/admin/approvals?error=Missing+certificate+ID");
+  }
+
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
+    .from("certificates")
+    .update({
+      approval_status: "approved",
+      approval_stage: "approved"
+    })
+    .eq("id", certId);
+
+  if (error) {
+    redirect(`/admin/approvals?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/approvals");
+  redirect("/admin/approvals?success=Certificate+approved+successfully.+It+can+now+be+minted.");
+}
+
+export async function rejectCertificateAction(formData: FormData) {
+  await ensureAdminAccess();
+
+  const certId = String(formData.get("certId") ?? "").trim();
+  const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
+
+  if (!certId || !rejectionReason) {
+    redirect("/admin/approvals?error=Missing+certificate+ID+or+rejection+reason");
+  }
+
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
+    .from("certificates")
+    .update({
+      approval_status: "rejected",
+      approval_stage: "rejected",
+      rejection_reason: rejectionReason
+    })
+    .eq("id", certId);
+
+  if (error) {
+    redirect(`/admin/approvals?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/approvals");
+  redirect("/admin/approvals?success=Certificate+rejected.");
+}
