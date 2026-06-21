@@ -25,6 +25,7 @@ export default async function VerifyPage({
         .from("certificates")
         .select("*")
         .eq("token_id", tokenId)
+        .eq("approval_status", "approved")
         .single();
       searchResult = data;
     }
@@ -35,6 +36,7 @@ export default async function VerifyPage({
         .from("certificates")
         .select("*")
         .eq("tx_hash", trimmed)
+        .eq("approval_status", "approved")
         .single();
       searchResult = data;
     }

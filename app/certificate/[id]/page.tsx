@@ -17,6 +17,7 @@ export default async function CertificateDetailPage({ params }: { params: Promis
     .from("certificates")
     .select("*")
     .eq("token_id", tokenId)
+    .eq("approval_status", "approved")
     .single();
 
   if (!certificate) {
