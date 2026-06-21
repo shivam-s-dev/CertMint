@@ -85,8 +85,8 @@ The project is focused on real certificate workflows, not generic task farming. 
 
 | Contract | Contract ID | Verify Link | Status |
 |---|---|---|---|
-| NFT Certificate Contract | CCB7VVTGDTN7WMWTW6THMJKBS6AVBFFN4RL2MMDRAFNYZPMZLIL2F45N | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CCB7VVTGDTN7WMWTW6THMJKBS6AVBFFN4RL2MMDRAFNYZPMZLIL2F45N) | Verified on testnet |
-| Verifier Contract | CBZM56JWVO6ORLKMO6Y7BHTB6VKXUXVJZOXS6JNJHYNWYDA2DY4HSRWP | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBZM56JWVO6ORLKMO6Y7BHTB6VKXUXVJZOXS6JNJHYNWYDA2DY4HSRWP) | Verified on testnet |
+| NFT Certificate Contract | CCC732QGOBVC2MJEBHIS4RU57IGHJSWHBL6BHD2AXNUCNYBWA3PNL4WO | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CCC732QGOBVC2MJEBHIS4RU57IGHJSWHBL6BHD2AXNUCNYBWA3PNL4WO) | Verified on testnet |
+| Verifier Contract | CBUVPMCNQ33YITCLGQGPRXAMS3C3BYCBLREEXRIFVRJ5LUYJXJTM4NGA | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBUVPMCNQ33YITCLGQGPRXAMS3C3BYCBLREEXRIFVRJ5LUYJXJTM4NGA) | Verified on testnet |
 
 ### Deployment Notes
 
@@ -135,6 +135,8 @@ CertMint is designed around public proof and controlled access.
 | Landing | Public product overview | Implemented |
 | Auth | Sign in / Sign up flow | Implemented |
 | Minting | Certificate mint wizard | Implemented |
+| Approvals | Multi-Level Workflows (Standard: Faculty/Issuer → Admin → Mint; Academic: Faculty → HOD → Registrar → Mint) | Implemented |
+| Reputation | Issuer Reputation System (Total Issued, Revoked Count, Reputation Score tracked on-chain) | Implemented |
 | Hooks | Shared wallet and mint integration logic | Added |
 | Verification | Search by certificate ID or TX hash | Implemented |
 | Admin | Logs, wallets, certs, tx pages | Implemented |
@@ -144,9 +146,10 @@ CertMint is designed around public proof and controlled access.
 
 | Contract | Capability | Purpose |
 |---|---|---|
-| nft_certificate | mint | Create certificate NFTs |
+| nft_certificate | mint | Create certificate NFTs & increments issuer reputation score |
 | nft_certificate | transfer | Move ownership |
-| nft_certificate | burn / revoke path | Invalidate issued credentials |
+| nft_certificate | burn / revoke path | Invalidate issued credentials & decrements issuer reputation score |
+| nft_certificate | get_issuer | Query issuer reputation data (total issued, revoked, reputation score) |
 | verifier | verify by token | Validate a certificate record |
 | verifier | verify by wallet | Check ownership-related proof |
 
@@ -198,10 +201,19 @@ tests/
 flowchart TD
   A[Open CertMint] --> B[Connect Wallet]
   B --> C[Sign In or Sign Up]
-  C --> D[Mint Certificate]
-  D --> E[Store On-Chain Proof]
-  E --> F[Verify by ID or TX Hash]
-  F --> G[View Public Result]
+  C --> D[Create Certificate Proposal]
+  D --> E{Select Workflow}
+  E -->|Standard| F[Pending Admin Approval]
+  F --> G[Admin Approves]
+  E -->|Academic| H[Pending HOD Approval]
+  H --> I[HOD Approves]
+  I --> J[Pending Registrar Approval]
+  J --> K[Registrar Approves]
+  G --> L[Mint Certificate NFT via Freighter]
+  K --> L
+  L --> M[Update Issuer Reputation on Stellar]
+  M --> N[Verify by ID or TX Hash]
+  N --> O[View Public Result & On-Chain Reputation]
 ```
 
 ## 🏗️ Project Architecture
@@ -211,44 +223,13 @@ flowchart LR
   UI[Next.js UI] --> SA[Server Actions]
   UI --> W[Freighter Wallet]
   UI --> HK[Shared Hooks]
-  SA --> DB[Supabase]
-  SA --> SC[Soroban Contracts]
-  SC --> ST[Stellar Testnet]
-  DB --> AD[Admin / Logs / Certificates]
+  SA --> DB[Supabase: approval state, roles & audit logs]
+  SA --> SC[Soroban Contracts: NFT Certificate & Verifier]
+  SC --> ST[Stellar Testnet: on-chain proof & issuer reputation]
+  DB --> AD[Admin / Approvals Queue Dashboard]
   HK --> W
   HK --> SA
 ```
-
-## 🎥 Video Proof Template
-
-If you are submitting video evidence, use this exact naming format:
-
-- `certmint-demo-home-and-mint.mp4`
-- `certmint-e2e-verification.mp4`
-- `certmint-contract-deploy-and-verify.mp4`
-
-Place the videos in your submission bundle or link them in the final report.
-
-## ✅ Submission Verification Checklist
-
-| Level | Criteria | Status |
-|---|---|---|
-| Level 1 | Wallet connect / disconnect | ✅ |
-| Level 1 | Balance display | ✅ |
-| Level 1 | Send XLM transaction | ✅ |
-| Level 1 | Transaction feedback | ✅ |
-| Level 1 | 3+ error types handled | ✅ |
-| Level 2 | Smart contracts deployed on Testnet | ✅ |
-| Level 2 | Contract calls working | ✅ |
-| Level 2 | Multi-wallet support (Freighter) | ✅ |
-| Level 2 | Real-time on-chain status | ✅ |
-| Level 3 | Inter-contract calls | ✅ |
-| Level 3 | 20+ tests passing | ✅ |
-| Level 3 | Mobile responsive | ✅ |
-| Level 3 | CI/CD running | ✅ |
-| Submission | Complete README with architecture | ✅ |
-| Submission | Contract addresses documented with links | ✅ |
-| Submission | Hooks folder with integration file added | ✅ |
 
 ## 🚀 Setup Guide
 
