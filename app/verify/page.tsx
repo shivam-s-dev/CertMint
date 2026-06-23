@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getIssuerReputation } from "@/lib/reputation";
+import { getCertificateEndorsements } from "@/lib/endorsements";
+import { EndorsementsPanel } from "@/components/endorsements-panel";
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +61,12 @@ export default async function VerifyPage({
         searchResult.tx_hash
       );
       searchResult.reputation_info = reputationInfo;
+
+      const endorsements = await getCertificateEndorsements(
+        searchResult.token_id,
+        searchResult.tx_hash
+      );
+      searchResult.endorsements = endorsements;
     }
   }
 
@@ -214,42 +222,50 @@ export default async function VerifyPage({
 
         {/* Certificate Preview Column (Right Side) */}
         {searchResult && (
-          <section className="rounded-[2rem] border border-[#EBD8CF] bg-white/90 p-7 shadow-[0_24px_52px_-34px_rgba(143,88,59,0.5)] backdrop-blur sm:p-10 sticky top-12">
-            <h2 className="text-sm font-semibold text-[#866E65] uppercase tracking-[0.1em] mb-6">Certificate Preview</h2>
-            
-            <article className={`rounded-2xl border bg-gradient-to-br p-6 sm:p-8 shadow-sm ${certTypeThemes[searchResult.cert_type] || certTypeThemes["HACKATHON"]}`}>
-              <p className="text-3xl sm:text-4xl">
-                {certTypeIcons[searchResult.cert_type] || "📜"} {searchResult.cert_type}
-              </p>
+          <section className="rounded-[2rem] border border-[#EBD8CF] bg-white/90 p-7 shadow-[0_24px_52px_-34px_rgba(143,88,59,0.5)] backdrop-blur sm:p-10 sticky top-12 space-y-6">
+            <div>
+              <h2 className="text-sm font-semibold text-[#866E65] uppercase tracking-[0.1em] mb-6">Certificate Preview</h2>
               
-              <div className="mt-6">
-                <h3 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl text-[#201714] leading-tight">
-                  {searchResult.title}
-                </h3>
-                {searchResult.description && (
-                  <p className="mt-3 text-base sm:text-lg text-[#4F423E] leading-relaxed">
-                    {searchResult.description}
-                  </p>
-                )}
-              </div>
+              <article className={`rounded-2xl border bg-gradient-to-br p-6 sm:p-8 shadow-sm ${certTypeThemes[searchResult.cert_type] || certTypeThemes["HACKATHON"]}`}>
+                <p className="text-3xl sm:text-4xl">
+                  {certTypeIcons[searchResult.cert_type] || "📜"} {searchResult.cert_type}
+                </p>
+                
+                <div className="mt-6">
+                  <h3 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl text-[#201714] leading-tight">
+                    {searchResult.title}
+                  </h3>
+                  {searchResult.description && (
+                    <p className="mt-3 text-base sm:text-lg text-[#4F423E] leading-relaxed">
+                      {searchResult.description}
+                    </p>
+                  )}
+                </div>
 
-              <div className="mt-10 space-y-2 text-sm text-[#4A3E3A] border-t border-black/5 pt-6">
-                <p className="font-medium text-[#201714]">
-                  Issued: {new Date(searchResult.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                </p>
-                <p className="text-xs uppercase tracking-[0.12em] text-[#7E6A62]">
-                  Type: {certTypeLabels[searchResult.cert_type] || searchResult.cert_type}
-                </p>
-                <p className="text-xs font-mono font-bold text-[#1A1211]">
-                  Verification ID: #{searchResult.token_id}
-                </p>
-                {searchResult.is_revoked && (
-                  <p className="mt-3 inline-block rounded-md bg-red-100 px-2 py-1 text-xs font-bold text-red-800">
-                    REVOKED
+                <div className="mt-10 space-y-2 text-sm text-[#4A3E3A] border-t border-black/5 pt-6">
+                  <p className="font-medium text-[#201714]">
+                    Issued: {new Date(searchResult.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                   </p>
-                )}
-              </div>
-            </article>
+                  <p className="text-xs uppercase tracking-[0.12em] text-[#7E6A62]">
+                    Type: {certTypeLabels[searchResult.cert_type] || searchResult.cert_type}
+                  </p>
+                  <p className="text-xs font-mono font-bold text-[#1A1211]">
+                    Verification ID: #{searchResult.token_id}
+                  </p>
+                  {searchResult.is_revoked && (
+                    <p className="mt-3 inline-block rounded-md bg-red-100 px-2 py-1 text-xs font-bold text-red-800">
+                      REVOKED
+                    </p>
+                  )}
+                </div>
+              </article>
+            </div>
+
+            <EndorsementsPanel
+              tokenId={searchResult.token_id}
+              initialEndorsements={searchResult.endorsements || []}
+              issuerWallet={searchResult.issuer_wallet}
+            />
           </section>
         )}
 
