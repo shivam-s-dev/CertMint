@@ -53,9 +53,9 @@ export function EndorsementsPanel({ tokenId, initialEndorsements, issuerWallet }
         };
         setEndorsements(prev => [...prev, newEndorsement]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setErrorMsg(err.message || `Failed to endorse as ${type}.`);
+      setErrorMsg(err instanceof Error ? err.message : `Failed to endorse as ${type}.`);
     } finally {
       setLoadingEndorser(null);
     }
@@ -93,9 +93,9 @@ export function EndorsementsPanel({ tokenId, initialEndorsements, issuerWallet }
         is_on_chain: true
       };
       setEndorsements(prev => [...prev, newEndorsement]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setErrorMsg(err.message || "Failed to endorse with Freighter.");
+      setErrorMsg(err instanceof Error ? err.message : "Failed to endorse with Freighter.");
     } finally {
       setLoadingEndorser(null);
     }

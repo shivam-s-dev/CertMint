@@ -35,16 +35,17 @@ export async function getCertificateEndorsements(
   txHash: string | null
 ): Promise<EndorsementInfo[]> {
   const supabase = createAdminClient();
+  console.debug(`Fetching endorsements for token ${tokenId} (ref tx: ${txHash})`);
 
   // 1. Fetch from database first
-  let dbEndorsements: any[] = [];
+  let dbEndorsements: { endorser_name: string; endorser_wallet: string; tx_hash: string | null }[] = [];
   try {
     const { data, error } = await supabase
       .from("endorsements")
       .select("*")
       .eq("token_id", tokenId);
     if (!error && data) {
-      dbEndorsements = data;
+      dbEndorsements = data as { endorser_name: string; endorser_wallet: string; tx_hash: string | null }[];
     }
   } catch (err) {
     console.warn("DB endorsements fetch failed, table might not exist yet:", err);

@@ -95,9 +95,9 @@ export async function endorseCertificateAction(
     if (!succeeded) {
       throw new Error("Transaction submission timed out.");
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Blockchain endorsement failed:", err);
-    throw new Error(`Blockchain error: ${err.message || err}`);
+    throw new Error(`Blockchain error: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 4. Save the endorsement to the database
@@ -117,7 +117,7 @@ export async function endorseCertificateAction(
       console.error("Database insert error:", insertErr);
       throw new Error(`Database error: ${insertErr.message}`);
     }
-  } catch (dbErr: any) {
+  } catch (dbErr: unknown) {
     console.error("Supabase insert failed:", dbErr);
     throw dbErr;
   }
