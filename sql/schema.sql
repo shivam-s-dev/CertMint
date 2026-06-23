@@ -204,3 +204,31 @@ CREATE POLICY "Nobody can update admin logs" ON public.admin_logs FOR UPDATE USI
 
 DROP POLICY IF EXISTS "Nobody can delete admin logs" ON public.admin_logs;
 CREATE POLICY "Nobody can delete admin logs" ON public.admin_logs FOR DELETE USING (false);
+
+-- Table: endorsements
+CREATE TABLE IF NOT EXISTS public.endorsements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  cert_id uuid REFERENCES public.certificates(id) ON DELETE CASCADE,
+  token_id bigint NOT NULL,
+  endorser_wallet text NOT NULL,
+  endorser_name text NOT NULL,
+  tx_hash text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Index for speed
+CREATE INDEX IF NOT EXISTS idx_endorsements_token_id ON public.endorsements(token_id);
+CREATE INDEX IF NOT EXISTS idx_endorsements_endorser_wallet ON public.endorsements(endorser_wallet);
+
+-- Enable RLS
+ALTER TABLE public.endorsements ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+DROP POLICY IF EXISTS "Public can read endorsements" ON public.endorsements;
+CREATE POLICY "Public can read endorsements" ON public.endorsements FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can insert endorsements" ON public.endorsements;
+CREATE POLICY "Authenticated users can insert endorsements" ON public.endorsements FOR INSERT TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role / Admin can insert/update endorsements" ON public.endorsements;
+CREATE POLICY "Service role / Admin can insert/update endorsements" ON public.endorsements FOR ALL TO service_role USING (true) WITH CHECK (true);

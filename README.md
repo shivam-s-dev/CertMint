@@ -85,7 +85,7 @@ The project is focused on real certificate workflows, not generic task farming. 
 
 | Contract | Contract ID | Verify Link | Status |
 |---|---|---|---|
-| NFT Certificate Contract | CCC732QGOBVC2MJEBHIS4RU57IGHJSWHBL6BHD2AXNUCNYBWA3PNL4WO | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CCC732QGOBVC2MJEBHIS4RU57IGHJSWHBL6BHD2AXNUCNYBWA3PNL4WO) | Verified on testnet |
+| NFT Certificate Contract | CCBM2ZDOU3LUDVWNX6TV55YDLRH2EO6LXYL7SRXYI3HXT422MNSWJSUY | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CCBM2ZDOU3LUDVWNX6TV55YDLRH2EO6LXYL7SRXYI3HXT422MNSWJSUY) | Verified on testnet |
 | Verifier Contract | CBUVPMCNQ33YITCLGQGPRXAMS3C3BYCBLREEXRIFVRJ5LUYJXJTM4NGA | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBUVPMCNQ33YITCLGQGPRXAMS3C3BYCBLREEXRIFVRJ5LUYJXJTM4NGA) | Verified on testnet |
 
 ### Deployment Notes
@@ -97,7 +97,28 @@ The project is focused on real certificate workflows, not generic task farming. 
 | Horizon | https://horizon-testnet.stellar.org |
 | Env Key | NEXT_PUBLIC_NFT_CONTRACT_ID |
 | Env Key | NEXT_PUBLIC_VERIFIER_CONTRACT_ID |
+| Env Key | NEXT_PUBLIC_SOROBAN_RPC_URL |
 
+### Manual Contract Deployment
+
+The repository does not currently automate on-chain deployment in CI. Use the Soroban CLI and a funded deploy account to publish contracts after building artifacts.
+
+```powershell
+npm run build:contracts
+pwsh ./scripts/deploy-contracts.ps1 -Network testnet -Deploy
+```
+
+If you do not want to deploy immediately, build artifacts only with:
+
+```powershell
+npm run build:contracts
+```
+
+## 🆕 New Smart Contract Feature
+
+- ✅ On-chain issuer reputation tracking for every issued certificate.
+- ✅ Endorsement support: certificates can receive on-chain endorsements and endorsement history can be queried.
+- ✅ Verifier contract performs cross-contract validation by querying the NFT contract directly.
 
 ## 🧪 Test Evidence
 
@@ -136,6 +157,7 @@ CertMint is designed around public proof and controlled access.
 | Auth | Sign in / Sign up flow | Implemented |
 | Minting | Certificate mint wizard | Implemented |
 | Approvals | Multi-Level Workflows (Standard: Faculty/Issuer → Admin → Mint; Academic: Faculty → HOD → Registrar → Mint) | Implemented |
+| Endorsements | On-chain endorsements for issued certificates | Implemented |
 | Reputation | Issuer Reputation System (Total Issued, Revoked Count, Reputation Score tracked on-chain) | Implemented |
 | Hooks | Shared wallet and mint integration logic | Added |
 | Verification | Search by certificate ID or TX hash | Implemented |
@@ -150,6 +172,8 @@ CertMint is designed around public proof and controlled access.
 | nft_certificate | transfer | Move ownership |
 | nft_certificate | burn / revoke path | Invalidate issued credentials & decrements issuer reputation score |
 | nft_certificate | get_issuer | Query issuer reputation data (total issued, revoked, reputation score) |
+| nft_certificate | endorse_certificate | Add on-chain endorsements to a certificate |
+| nft_certificate | get_endorsements | Query certificate endorsement history |
 | verifier | verify by token | Validate a certificate record |
 | verifier | verify by wallet | Check ownership-related proof |
 
@@ -256,7 +280,8 @@ npm run lint
 npm run build
 npm run test:e2e
 cd contracts
-cargo test
+cargo test --all
+cargo build --release --target wasm32v1-none
 ```
 
 ### 5) Run with Docker (Recommended)

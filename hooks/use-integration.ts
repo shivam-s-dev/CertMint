@@ -145,11 +145,88 @@ export function useIntegration() {
     return { realHash, generatedTokenId, contractId };
   }, []);
 
+  const endorseCertificateTx = useCallback(async (
+    currentAddress: string,
+    tokenId: number
+  ) => {
+    const { rpc: SorobanRpc, Transaction } = await import("@stellar/stellar-sdk");
+    const sorobanServer = new SorobanRpc.Server(
+      process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org"
+    );
+
+    const contractId = process.env.NEXT_PUBLIC_NFT_CONTRACT_ID || "PLACEHOLDER";
+    if (contractId === "PLACEHOLDER") throw new Error("NFT Contract ID not configured.");
+
+    const sourceAccount = await sorobanServer.getAccount(currentAddress);
+
+    const contract = new Contract(contractId);
+    const operation = contract.call(
+      "endorse_certificate",
+      nativeToScVal(tokenId, { type: "u64" }),
+      nativeToScVal(currentAddress, { type: "address" })
+    );
+
+    const tx = new TransactionBuilder(sourceAccount, {
+      fee: "300",
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(operation)
+      .setTimeout(60)
+      .build();
+
+    const simulation = await sorobanServer.simulateTransaction(tx);
+    if (SorobanRpc.Api.isSimulationError(simulation)) {
+      throw new Error(`Contract simulation failed: ${simulation.error}`);
+    }
+
+    const preparedTx = SorobanRpc.assembleTransaction(tx, simulation).build();
+
+    const signResult = await signTransaction(preparedTx.toXDR(), {
+      networkPassphrase: Networks.TESTNET,
+    });
+    
+    if (typeof signResult === "object" && "error" in signResult) {
+      throw new Error((signResult as { error?: string }).error || "User declined to sign the transaction.");
+    }
+    
+    const signedXdr =
+      typeof signResult === "string"
+        ? signResult
+        : (signResult as { signedTxXdr: string }).signedTxXdr;
+
+    const submitResponse = await sorobanServer.sendTransaction(
+      new Transaction(signedXdr, Networks.TESTNET)
+    );
+
+    if (submitResponse.status === "ERROR") {
+      throw new Error(`On-chain submission failed: ${String(submitResponse.errorResult)}`);
+    }
+
+    const realHash = submitResponse.hash;
+    let attempts = 0;
+    while (attempts < 8) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const poll = await sorobanServer.getTransaction(realHash);
+      if (poll.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) break;
+      if (poll.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+        let errorMsg = "Transaction failed on-chain.";
+        if (poll.resultMetaXdr) {
+          errorMsg += " Check Stellar Explorer for detailed contract execution error.";
+        }
+        throw new Error(errorMsg);
+      }
+      attempts++;
+    }
+
+    return { realHash };
+  }, []);
+
   return {
     walletAddress,
     setWalletAddress,
     connectWallet,
     disconnectWallet,
-    mintCertificateTx
+    mintCertificateTx,
+    endorseCertificateTx
   };
 }

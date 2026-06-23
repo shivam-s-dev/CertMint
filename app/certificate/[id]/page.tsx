@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getIssuerReputation } from "@/lib/reputation";
+import { getCertificateEndorsements } from "@/lib/endorsements";
+import { EndorsementsPanel } from "@/components/endorsements-panel";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +29,11 @@ export default async function CertificateDetailPage({ params }: { params: Promis
 
   const reputationInfo = await getIssuerReputation(
     certificate.issuer_wallet,
+    certificate.tx_hash
+  );
+
+  const endorsements = await getCertificateEndorsements(
+    tokenId,
     certificate.tx_hash
   );
   
@@ -142,6 +149,18 @@ export default async function CertificateDetailPage({ params }: { params: Promis
                 <p>Revoked count: <strong>{reputationInfo.revoked}</strong></p>
               </div>
             </div>
+          </div>
+
+          <div className="mt-10">
+            <div className="flex items-center gap-4 mb-6">
+              <span className="text-sm font-semibold text-[#866E65] uppercase tracking-[0.1em]">Endorsements</span>
+              <div className="h-px flex-1 bg-[#EFDED5]"></div>
+            </div>
+            <EndorsementsPanel
+              tokenId={tokenId}
+              initialEndorsements={endorsements}
+              issuerWallet={certificate.issuer_wallet}
+            />
           </div>
 
           <div className="mt-10">

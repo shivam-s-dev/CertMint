@@ -180,3 +180,55 @@ fn test_reputation_tracking() {
     assert_eq!(issuer_info_after.revoked, 1);
     assert_eq!(issuer_info_after.reputation, 100); // 101 - 1 = 100
 }
+
+#[test]
+fn test_endorsements_success() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(NFTCertificateContract, ());
+    let client = NFTCertificateContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let to = Address::generate(&env);
+    let token_id = 1;
+    let cert_type = Symbol::new(&env, "cert");
+    let title = String::from_str(&env, "Test Certificate");
+
+    client.mint(&to, &token_id, &cert_type, &title);
+
+    // Get endorsements should be empty initially
+    assert_eq!(client.get_endorsements(&token_id).len(), 0);
+
+    // Endorse from an address
+    let endorser1 = Address::generate(&env);
+    client.endorse_certificate(&token_id, &endorser1);
+
+    let endorsements = client.get_endorsements(&token_id);
+    assert_eq!(endorsements.len(), 1);
+    assert_eq!(endorsements.get(0).unwrap(), endorser1);
+
+    // Duplicate endorsements should be ignored
+    client.endorse_certificate(&token_id, &endorser1);
+    assert_eq!(client.get_endorsements(&token_id).len(), 1);
+
+    // Add another endorsement
+    let endorser2 = Address::generate(&env);
+    client.endorse_certificate(&token_id, &endorser2);
+    let endorsements_after = client.get_endorsements(&token_id);
+    assert_eq!(endorsements_after.len(), 2);
+    assert_eq!(endorsements_after.get(1).unwrap(), endorser2);
+}
+
+#[test]
+#[should_panic(expected = "token does not exist")]
+fn test_endorse_nonexistent_token_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(NFTCertificateContract, ());
+    let client = NFTCertificateContractClient::new(&env, &contract_id);
+
+    let endorser = Address::generate(&env);
+    client.endorse_certificate(&999, &endorser);
+}

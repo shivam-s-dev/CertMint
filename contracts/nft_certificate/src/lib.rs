@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Symbol};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Symbol, Vec};
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -19,6 +19,7 @@ pub enum DataKey {
     TotalSupply,          // u64
     Admin,                // Address
     IssuerReputation(Address), // Address -> Issuer struct
+    Endorsements(u64),    // token_id -> Vec<Address>
 }
 
 #[contracttype]
@@ -172,6 +173,28 @@ impl NFTCertificateContract {
 
     pub fn get_issuer(env: Env, issuer: Address) -> Option<Issuer> {
         env.storage().persistent().get(&DataKey::IssuerReputation(issuer))
+    }
+
+    pub fn endorse_certificate(env: Env, token_id: u64, endorser: Address) {
+        endorser.require_auth();
+
+        // Verify the certificate exists
+        let _cert: CertificateData = env.storage().persistent().get(&DataKey::Certificate(token_id)).expect("token does not exist");
+
+        let key = DataKey::Endorsements(token_id);
+        let mut endorsers: Vec<Address> = env.storage().persistent().get(&key).unwrap_or_else(|| Vec::new(&env));
+
+        if !endorsers.contains(&endorser) {
+            endorsers.push_back(endorser.clone());
+            env.storage().persistent().set(&key, &endorsers);
+
+            env.events().publish((Symbol::new(&env, "endorse"), token_id), endorser);
+        }
+    }
+
+    pub fn get_endorsements(env: Env, token_id: u64) -> Vec<Address> {
+        let key = DataKey::Endorsements(token_id);
+        env.storage().persistent().get(&key).unwrap_or_else(|| Vec::new(&env))
     }
 }
 
